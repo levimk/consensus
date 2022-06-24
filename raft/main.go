@@ -5,53 +5,46 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
-	pb "raft/infrastructure"
-	"raft/node"
-
-	"google.golang.org/grpc"
+	"raft/consensus"
 )
 
-const CONNECTION_PROTOCOL string = "tcp"
-
 var (
-	id       = flag.Int("id", 1, "Node id")
-	hostname = flag.String("hostname", "localhost", "The server hostname")
-	port     = flag.Int("port", 8080, "The server port")
+	id          = flag.Int("id", -1, "Node id")
+	serveClient = flag.Bool("serveClient", false, "Delegate this server as the client-facing server")
+	raftConfig  = flag.String("config", "", "Path to directory containing config file")
 )
 
 func main() {
 	fmt.Println("Raft")
 	flag.Parse()
-	lis, err := net.Listen(CONNECTION_PROTOCOL, fmt.Sprintf("%s:%d", *hostname, *port))
-	if err != nil {
-		log.Fatalf("%s failed to listen: %v", *hostname, err)
-	} else {
-		config := fmt.Sprintf("\tNode[%d] listening on %s:%d", *id, *hostname, *port)
-		fmt.Println(config)
+	if *id == -1 {
+		log.Fatalln("Must provide node id >= 0 using `-id` flag")
 	}
-	grpcServer := grpc.NewServer()
-	mainCtx := context.Background()
-	raft := node.NewRaft(mainCtx, *id)
+	if *raftConfig == "" {
+		log.Fatalln("Must provide Raft config file (yaml) `-config` flag")
+	}
+	raftCtx := context.Background()
+	raftCtx = context.WithValue(raftCtx, "id", *id)
+	raftCtx = context.WithValue(raftCtx, "configPath", *raftConfig)
+	raft := consensus.NewRaft(raftCtx)
 
-	// Listen for connections and communication
 	initiateShutDown := make(chan bool)
 	shutDownSystem := make(chan bool)
-	go func() {
-		fmt.Println(fmt.Sprintf("\t[%d] starting gRPC server", *id))
-		pb.RegisterRaftServer(grpcServer, raft)
-		grpcServer.Serve(lis)
-		initiateShutDown <- true
-	}()
 
-	// for peer in peers : connect to peer
-	go raft.RunClient(initiateShutDown)
+	// Listen for connections and communication
+	go raft.Run(initiateShutDown)
 
 	// handle shut down
 	go func() {
 		<-initiateShutDown
 		shutDownSystem <- true
 	}()
+
+	clientServer := NewClientServer(raft)
+
+	if *serveClient {
+		go clientServer.Run()
+	}
 
 	<-shutDownSystem
 }

@@ -1,3 +1,7 @@
 package types
 
-type Command string
+type Command struct {
+	ClientId string
+	Command  string
+	Value    string
+}

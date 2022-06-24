@@ -1,0 +1,15 @@
+server:
+  hostname: localhost
+  port: 8080
+  keys:
+    private: "my-private-key"
+    public: PUBKEY
+  communication:
+    protocol: tcp
+  peers:
+    [
+      "2:localhost:8081",
+      "3:localhost:8082",
+      "4:localhost:8083",
+      "5:localhost:8084",
+    ]

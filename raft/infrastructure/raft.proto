@@ -14,7 +14,9 @@ message AppendEntriesRequest {
   repeated int32 terms = 5;
   repeated int32 indexes = 6;
   repeated string commands = 7;
-  int32 leaderCommit = 8;
+  repeated string values = 8;
+  repeated string clientIds = 9;
+  int32 leaderCommit = 10;
 }
 
 message AppendEntriesReply {
